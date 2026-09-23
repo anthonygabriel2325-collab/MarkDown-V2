@@ -1,239 +1,1913 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown V2 (MD2) - Especificação & Playground</title>
-    <!-- Utilizando marked.js como fallback para o Markdown Clássico (Progressive Enhancement) -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        /* =========================================
-           ESTILOS DA INTERFACE (PLAYGROUND)
-           ========================================= */
-        :root {
-            --bg-color: #1e1e2e;
-            --panel-bg: #282a36;
-            --text-color: #f8f8f2;
-            --accent: #bd93f9;
-            --border: #44475a;
+(function (global) {
+    "use strict";
+
+    const VERSION = "3.0.0";
+
+    const defaultOptions = {
+        sanitize: true,
+        injectStyles: true,
+        allowRawHtml: false
+    };
+
+    const CSS = `
+.md2-root{line-height:1.6}
+.md2-root mark.md2-highlight{background:#ffd700;color:#000;padding:0 4px;border-radius:3px}
+.md2-root u.md2-underline{text-decoration:underline;text-decoration-color:#bd93f9;text-decoration-thickness:2px}
+.md2-root kbd.md2-kbd{background:#eee;border:1px solid #b4b4b4;border-radius:3px;padding:2px 5px;font-family:monospace;font-size:.9em;box-shadow:0 1px 1px rgba(0,0,0,.2);color:#333}
+
+.md2-root .md2-spoiler{
+    background:#d1d5db;
+    color:transparent;
+    text-shadow:0 0 10px rgba(0,0,0,.5);
+    cursor:pointer;
+    transition:all .3s;
+    border-radius:4px;
+    padding:0 4px;
+    user-select:none
+}
+
+.md2-root .md2-spoiler.revealed{
+    background:transparent;
+    color:inherit;
+    text-shadow:none
+}
+
+.md2-root .md2-styled{
+    display:inline-block;
+    position:relative;
+    transition:all .2s
+}
+
+.md2-root .md2-styled[data-hover-text]:hover::after{
+    content:attr(data-hover-text);
+    position:absolute;
+    bottom:100%;
+    left:50%;
+    transform:translateX(-50%);
+    background:#333;
+    color:#fff;
+    padding:4px 8px;
+    border-radius:4px;
+    font-size:12px;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:20
+}
+
+.md2-root .md2-anim-rainbow{
+    background-image:linear-gradient(
+        to left,
+        violet,
+        indigo,
+        blue,
+        green,
+        yellow,
+        orange,
+        red
+    );
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    animation:md2-rainbow 5s linear infinite;
+    background-size:200% 200%
+}
+
+.md2-root .md2-anim-pulse{
+    animation:md2-pulse 1s infinite
+}
+
+.md2-root .md2-anim-typewriter{
+    overflow:hidden;
+    white-space:nowrap;
+    border-right:2px solid;
+    animation:
+        md2-typing 3.5s steps(40,end),
+        md2-blink-caret .75s step-end infinite
+}
+
+@keyframes md2-rainbow{
+    0%{background-position:0 50%}
+    100%{background-position:200% 50%}
+}
+
+@keyframes md2-pulse{
+    0%,100%{
+        opacity:1;
+        transform:scale(1)
+    }
+    50%{
+        opacity:.5;
+        transform:scale(1.05)
+    }
+}
+
+@keyframes md2-typing{
+    from{width:0}
+    to{width:100%}
+}
+
+@keyframes md2-blink-caret{
+    from,to{border-color:transparent}
+    50%{border-color:currentColor}
+}
+
+.md2-root .md2-book{
+    padding:2rem;
+    margin:1.5rem 0;
+    border-radius:8px;
+    box-shadow:
+        inset 0 0 20px rgba(0,0,0,.05),
+        0 4px 6px rgba(0,0,0,.1)
+}
+
+.md2-root .md2-book-sepia{
+    background:#f4ecd8;
+    color:#4b3b25;
+    font-family:Georgia,serif
+}
+
+.md2-root .md2-callout{
+    padding:1rem 1.5rem;
+    margin:1rem 0;
+    border-radius:0 8px 8px 0;
+    border-left:5px solid
+}
+
+.md2-root .md2-callout p{
+    margin:0
+}
+
+.md2-root .md2-callout-info{
+    background:#e0f2fe;
+    border-color:#0284c7;
+    color:#0369a1
+}
+
+.md2-root .md2-callout-danger{
+    background:#fee2e2;
+    border-color:#dc2626;
+    color:#991b1b
+}
+
+.md2-root .md2-callout-success{
+    background:#dcfce7;
+    border-color:#16a34a;
+    color:#166534
+}
+
+.md2-root .md2-callout-warning{
+    background:#fef3c7;
+    border-color:#d97706;
+    color:#92400e
+}
+
+.md2-root .md2-tabs{
+    border:1px solid #ccc;
+    border-radius:6px;
+    overflow:hidden;
+    margin:1rem 0
+}
+
+.md2-root .md2-tab-headers{
+    display:flex;
+    flex-wrap:wrap;
+    background:#f1f1f1;
+    border-bottom:1px solid #ccc
+}
+
+.md2-root .md2-tab-header{
+    padding:10px 15px;
+    cursor:pointer;
+    border:0;
+    border-right:1px solid #ccc;
+    background:transparent;
+    font:inherit;
+    font-weight:bold
+}
+
+.md2-root .md2-tab-header.active{
+    background:#fff;
+    border-bottom:2px solid #0284c7;
+    margin-bottom:-1px
+}
+
+.md2-root .md2-tab-content{
+    display:none;
+    padding:1rem
+}
+
+.md2-root .md2-tab-content.active{
+    display:block
+}
+
+.md2-root .md2-accordion{
+    margin:1rem 0;
+    border:1px solid #ddd;
+    border-radius:6px
+}
+
+.md2-root .md2-accordion summary{
+    font-weight:bold;
+    cursor:pointer;
+    padding:10px;
+    background:#f9f9f9;
+    border-radius:6px
+}
+
+.md2-root .md2-accordion .md2-accordion-content{
+    padding:10px;
+    border-top:1px solid #ddd
+}
+
+.md2-root .md2-columns{
+    display:flex;
+    flex-wrap:wrap;
+    gap:1rem;
+    margin:1rem 0
+}
+
+.md2-root .md2-column{
+    flex:1;
+    min-width:180px
+}
+
+.md2-root .md2-media{
+    max-width:100%;
+    border-radius:8px;
+    margin:1rem 0;
+    display:block
+}
+
+.md2-root .md2-smart-table{
+    width:100%;
+    border-collapse:collapse;
+    margin:1rem 0
+}
+
+.md2-root .md2-smart-table th,
+.md2-root .md2-smart-table td{
+    border:1px solid #ccc;
+    padding:8px;
+    text-align:left
+}
+
+.md2-root .md2-smart-table th{
+    background:#f4f4f4
+}
+
+.md2-root .md2-code{
+    display:block;
+    padding:1rem;
+    overflow:auto;
+    border-radius:6px;
+    background:#18181b;
+    color:#f4f4f5;
+    font-family:
+        ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        Monaco,
+        Consolas,
+        monospace;
+    font-size:.9em
+}
+`;
+
+    function mergeOptions(options) {
+        return Object.assign({}, defaultOptions, options || {});
+    }
+
+    function injectStyles() {
+        if (typeof document === "undefined") return;
+        if (document.getElementById("md2-library-styles")) return;
+
+        const style = document.createElement("style");
+        style.id = "md2-library-styles";
+        style.textContent = CSS;
+
+        document.head.appendChild(style);
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function escapeAttr(value) {
+        return escapeHtml(value).replace(/`/g, "&#96;");
+    }
+
+    function parseFrontMatter(source) {
+        const match = String(source).match(
+            /^\uFEFF?---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/
+        );
+
+        if (!match) {
+            return {
+                attributes: {},
+                body: String(source)
+            };
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        header {
-            padding: 1rem 2rem;
-            background-color: var(--panel-bg);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        header h1 { font-size: 1.5rem; color: var(--accent); }
-        .container {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-        .panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid var(--border);
-        }
-        .panel-header {
-            padding: 0.5rem 1rem;
-            background: #21222c;
-            font-size: 0.85rem;
-            font-weight: bold;
-            color: #8be9fd;
-            text-transform: uppercase;
-        }
-        textarea {
-            flex: 1;
-            width: 100%;
-            background-color: transparent;
-            color: inherit;
-            border: none;
-            padding: 1rem;
-            font-family: "Fira Code", monospace;
-            font-size: 14px;
-            resize: none;
-            outline: none;
-        }
-        #preview {
-            flex: 1;
-            padding: 2rem;
-            overflow-y: auto;
-            background-color: #ffffff; /* Preview em fundo claro para contraste */
-            color: #333333;
-            font-family: "Inter", sans-serif;
-            line-height: 1.6;
+
+        const attributes = {};
+
+        for (const line of match[1].split(/\r?\n/)) {
+            const separator = line.indexOf(":");
+
+            if (separator < 0) {
+                continue;
+            }
+
+            const key = line.slice(0, separator).trim();
+            let value = line.slice(separator + 1).trim();
+
+            if (
+                (value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'"))
+            ) {
+                value = value.slice(1, -1);
+            } else if (/^(true|false)$/i.test(value)) {
+                value = value.toLowerCase() === "true";
+            } else if (/^-?\d+(?:\.\d+)?$/.test(value)) {
+                value = Number(value);
+            }
+
+            if (key) {
+                attributes[key] = value;
+            }
         }
 
-        /* =========================================
-           ESTILOS NATIVOS DA BIBLIOTECA MD2
-           ========================================= */
-        
-        /* Inline Elements */
-        mark.md2-highlight { background-color: #ffd700; color: #000; padding: 0 4px; border-radius: 3px; }
-        u.md2-underline { text-decoration: underline; text-decoration-color: #bd93f9; text-decoration-thickness: 2px; }
-        kbd.md2-kbd { background-color: #eee; border: 1px solid #b4b4b4; border-radius: 3px; padding: 2px 5px; font-family: monospace; font-size: 0.9em; box-shadow: 0 1px 1px rgba(0,0,0,.2); color: #333; }
-        
-        /* Spoilers */
-        .md2-spoiler {
-            background-color: #d1d5db;
-            color: transparent;
-            text-shadow: 0 0 10px rgba(0,0,0,0.5);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-radius: 4px;
-            padding: 0 4px;
-            user-select: none;
+        return {
+            attributes,
+            body: String(source).slice(match[0].length)
+        };
+    }
+
+    function replaceVariables(text, attributes) {
+        return text.replace(
+            /\{\{\s*([\w.-]+)\s*\}\}/g,
+            function (_, key) {
+                const value = key
+                    .split(".")
+                    .reduce(
+                        (obj, part) =>
+                            obj == null ? undefined : obj[part],
+                        attributes
+                    );
+
+                return value == null ? "" : String(value);
+            }
+        );
+    }
+
+    function parseAttributes(input) {
+        const attrs = {};
+
+        const re =
+            /([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s]+))/g;
+
+        let match;
+
+        while ((match = re.exec(input))) {
+            attrs[match[1]] =
+                match[2] ??
+                match[3] ??
+                match[4] ??
+                "";
         }
-        .md2-spoiler.revealed {
-            background-color: transparent;
-            color: inherit;
-            text-shadow: none;
+
+        return attrs;
+    }
+
+    function cssPropertyName(name) {
+        const map = {
+            color: "color",
+            background: "background",
+            "background-color": "backgroundColor",
+            size: "fontSize",
+            "font-size": "fontSize",
+            font: "fontFamily",
+            weight: "fontWeight",
+            "font-weight": "fontWeight",
+            style: "fontStyle",
+            "letter-spacing": "letterSpacing",
+            "word-spacing": "wordSpacing",
+            "text-decoration": "textDecoration",
+            "text-align": "textAlign",
+            stroke: "webkitTextStroke",
+            opacity: "opacity",
+            transform: "transform",
+            "border-radius": "borderRadius",
+            padding: "padding",
+            margin: "margin"
+        };
+
+        return map[name] || null;
+    }
+
+    function parseStyleAttributes(attrs) {
+        const style = [];
+        const data = [];
+
+        for (const [key, value] of Object.entries(attrs)) {
+            const cssName = cssPropertyName(key);
+
+            if (cssName) {
+                const safeValue = value.replace(/["']/g, "");
+
+                style.push(
+                    cssName + ":" + safeValue
+                );
+
+                continue;
+            }
+
+            if (key === "hover-color") {
+                data.push(
+                    'data-hover-color="' +
+                    escapeAttr(value) +
+                    '"'
+                );
+
+                continue;
+            }
+
+            if (key === "hover-size") {
+                data.push(
+                    'data-hover-size="' +
+                    escapeAttr(value) +
+                    '"'
+                );
+
+                continue;
+            }
+
+            if (key === "hover-text") {
+                data.push(
+                    'data-hover-text="' +
+                    escapeAttr(value) +
+                    '"'
+                );
+
+                continue;
+            }
+
+            if (key === "animate") {
+                data.push(
+                    'data-md2-animation="' +
+                    escapeAttr(value) +
+                    '"'
+                );
+
+                continue;
+            }
+
+            if (key === "duration") {
+                data.push(
+                    'data-md2-duration="' +
+                    escapeAttr(value) +
+                    '"'
+                );
+            }
         }
 
-        /* Estilos e Atributos Universais */
-        .md2-styled { display: inline-block; position: relative; transition: all 0.2s; }
-        .md2-styled[data-hover-text]:hover::after {
-            content: attr(data-hover-text);
-            position: absolute;
-            bottom: 100%; left: 50%;
-            transform: translateX(-50%);
-            background: #333; color: #fff;
-            padding: 4px 8px; border-radius: 4px;
-            font-size: 12px; white-space: nowrap;
-            pointer-events: none;
+        return {
+            style: style.length
+                ? ' style="' +
+                  escapeAttr(style.join(";")) +
+                  '"'
+                : "",
+
+            data: data.length
+                ? " " + data.join(" ")
+                : ""
+        };
+    }
+
+    function applyAnimatedAttributes(html, attrs) {
+        if (!attrs.animate) {
+            return html;
         }
 
-        /* Animações Nativas */
-        .md2-anim-rainbow {
-            background-image: linear-gradient(to left, violet, indigo, blue, green, yellow, orange, red);
-            -webkit-background-clip: text; color: transparent;
-            animation: rainbow-anim 5s linear infinite;
-            background-size: 200% 200%;
+        const animation = String(
+            attrs.animate
+        ).toLowerCase();
+
+        const allowed = {
+            rainbow: "md2-anim-rainbow",
+            pulse: "md2-anim-pulse",
+            typewriter: "md2-anim-typewriter"
+        };
+
+        if (!allowed[animation]) {
+            return html;
         }
-        @keyframes rainbow-anim { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
-        
-        .md2-anim-pulse { animation: pulse-anim 1s infinite; }
-        @keyframes pulse-anim { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.05); } }
-        
-        .md2-anim-typewriter {
-            overflow: hidden; white-space: nowrap; border-right: 2px solid;
-            animation: typing 3.5s steps(40, end), blink-caret .75s step-end infinite;
+
+        const duration = attrs.duration
+            ? ' style="animation-duration:' +
+              escapeAttr(attrs.duration) +
+              '"'
+            : "";
+
+        return (
+            '<span class="' +
+            allowed[animation] +
+            '"' +
+            duration +
+            ">" +
+            html +
+            "</span>"
+        );
+    }
+
+    function parseInline(input, state) {
+        let text = String(input);
+
+        const placeholders = [];
+
+        const stash = (html) => {
+            const token =
+                "\u0000MD2_" +
+                placeholders.length +
+                "\u0000";
+
+            placeholders.push(html);
+
+            return token;
+        };
+
+        text = text.replace(
+            /```([\s\S]*?)```/g,
+            (_, code) =>
+                stash(
+                    '<code class="md2-code">' +
+                    escapeHtml(code.trim()) +
+                    "</code>"
+                )
+        );
+
+        text = text.replace(
+            /`([^`\n]+)`/g,
+            (_, code) =>
+                stash(
+                    "<code>" +
+                    escapeHtml(code) +
+                    "</code>"
+                )
+        );
+
+        text = replaceVariables(
+            text,
+            state.attributes
+        );
+
+        if (
+            state.options.sanitize &&
+            !state.options.allowRawHtml
+        ) {
+            text = escapeHtml(text);
         }
-        @keyframes typing { from { width: 0 } to { width: 100% } }
-        @keyframes blink-caret { from, to { border-color: transparent } 50% { border-color: currentColor; } }
 
-        /* Blocos (Admonitions, Book, Tabs, Columns) */
-        .md2-book {
-            font-family: "Georgia", serif;
-            padding: 2rem;
-            margin: 1.5rem 0;
-            border-radius: 8px;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.05), 0 4px 6px rgba(0,0,0,0.1);
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
+        text = text.replace(
+            /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g,
+            function (_, alt, src, title) {
+                const titleAttr = title
+                    ? ' title="' +
+                      escapeAttr(title) +
+                      '"'
+                    : "";
+
+                return stash(
+                    '<img class="md2-media" src="' +
+                    escapeAttr(src) +
+                    '" alt="' +
+                    escapeAttr(alt) +
+                    '"' +
+                    titleAttr +
+                    ">"
+                );
+            }
+        );
+
+        text = text.replace(
+            /\[([^\]\n]+)\]\{([^}]+)\}/g,
+            function (_, content, rawAttrs) {
+                const attrs =
+                    parseAttributes(rawAttrs);
+
+                const style =
+                    parseStyleAttributes(attrs);
+
+                let inner =
+                    parseInline(
+                        content,
+                        state
+                    );
+
+                inner =
+                    applyAnimatedAttributes(
+                        inner,
+                        attrs
+                    );
+
+                const cls = [
+                    "md2-styled"
+                ];
+
+                if (
+                    attrs.animate &&
+                    [
+                        "rainbow",
+                        "pulse",
+                        "typewriter"
+                    ].includes(
+                        String(
+                            attrs.animate
+                        ).toLowerCase()
+                    )
+                ) {
+                    cls.push(
+                        "md2-animated-wrapper"
+                    );
+                }
+
+                return (
+                    '<span class="' +
+                    cls.join(" ") +
+                    '"' +
+                    style.style +
+                    style.data +
+                    ">" +
+                    inner +
+                    "</span>"
+                );
+            }
+        );
+
+        text = text.replace(
+            /\|\|\[([^\]]+)\]\|\|/g,
+            (_, content) =>
+                stash(
+                    '<span class="md2-spoiler" tabindex="0" role="button" aria-expanded="false">' +
+                    parseInline(
+                        content,
+                        state
+                    ) +
+                    "</span>"
+                )
+        );
+
+        text = text.replace(
+            /\[\[([^\]]+)\]\]/g,
+            (_, content) =>
+                "<kbd class=\"md2-kbd\">" +
+                content +
+                "</kbd>"
+        );
+
+        text = text.replace(
+            /==([^=\n]+)==/g,
+            '<mark class="md2-highlight">$1</mark>'
+        );
+
+        text = text.replace(
+            /__([^_\n]+)__/g,
+            '<u class="md2-underline">$1</u>'
+        );
+
+        text = text.replace(
+            /~~([^~\n]+)~~/g,
+            "<del>$1</del>"
+        );
+
+        text = text.replace(
+            /\*\*([^*\n]+)\*\*/g,
+            "<strong>$1</strong>"
+        );
+
+        text = text.replace(
+            /\*([^*\n]+)\*/g,
+            "<em>$1</em>"
+        );
+
+        text = text.replace(
+            /_([^_\n]+)_/g,
+            "<em>$1</em>"
+        );
+
+        text = text.replace(
+            /(?<!\w)\^([^^\n]+)\^/g,
+            "<sup>$1</sup>"
+        );
+
+        text = text.replace(
+            /(?<!\w)~([^~\n]+)~/g,
+            "<sub>$1</sub>"
+        );
+
+        text = text.replace(
+            /\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,
+            '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+
+        text = text.replace(
+            /\u0000MD2_(\d+)\u0000/g,
+            (_, index) =>
+                placeholders[Number(index)] || ""
+        );
+
+        return text;
+    }
+
+    function parseList(lines, index, state) {
+        const first = lines[index];
+
+        const ordered =
+            /^\s*\d+\.\s+/.test(first);
+
+        const marker = ordered
+            ? /^\s*\d+\.\s+/
+            : /^\s*[-*+]\s+/;
+
+        const items = [];
+
+        while (
+            index < lines.length &&
+            marker.test(lines[index])
+        ) {
+            items.push(
+                lines[index].replace(
+                    marker,
+                    ""
+                )
+            );
+
+            index++;
         }
-        .md2-callout {
-            padding: 1rem 1.5rem;
-            margin: 1rem 0;
-            border-radius: 0 8px 8px 0;
-            border-left: 5px solid;
+
+        const tag = ordered ? "ol" : "ul";
+
+        return {
+            html:
+                "<" +
+                tag +
+                ">" +
+                items
+                    .map(
+                        item =>
+                            "<li>" +
+                            parseInline(
+                                item,
+                                state
+                            ) +
+                            "</li>"
+                    )
+                    .join("") +
+                "</" +
+                tag +
+                ">",
+
+            index
+        };
+    }
+
+    function parseTable(lines, index, state) {
+        if (index + 1 >= lines.length) {
+            return null;
         }
-        .md2-callout p { margin: 0; }
-        .md2-callout-info { background-color: #e0f2fe; border-color: #0284c7; color: #0369a1; }
-        .md2-callout-danger { background-color: #fee2e2; border-color: #dc2626; color: #991b1b; }
 
-        .md2-columns { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
-        .md2-column { flex: 1; }
+        if (
+            !/\|/.test(lines[index]) ||
+            !/^\s*\|?[\s:|-]+\|/.test(
+                lines[index + 1]
+            )
+        ) {
+            return null;
+        }
 
-        .md2-tabs { border: 1px solid #ccc; border-radius: 6px; overflow: hidden; margin: 1rem 0; }
-        .md2-tab-headers { display: flex; background: #f1f1f1; border-bottom: 1px solid #ccc; }
-        .md2-tab-header { padding: 10px 15px; cursor: pointer; border-right: 1px solid #ccc; font-weight: bold; }
-        .md2-tab-header.active { background: #fff; border-bottom: 2px solid #0284c7; margin-bottom: -1px; }
-        .md2-tab-content { display: none; padding: 1rem; }
-        .md2-tab-content.active { display: block; }
+        const splitRow = line =>
+            line
+                .trim()
+                .replace(/^\|/, "")
+                .replace(/\|$/, "")
+                .split("|")
+                .map(
+                    cell =>
+                        cell.trim()
+                );
 
-        .md2-accordion { margin: 1rem 0; border: 1px solid #ddd; border-radius: 6px; }
-        .md2-accordion summary { font-weight: bold; cursor: pointer; padding: 10px; background: #f9f9f9; border-radius: 6px; }
-        .md2-accordion .content { padding: 10px; border-top: 1px solid #ddd; }
+        const headers =
+            splitRow(lines[index]);
 
-        /* Mídia */
-        .md2-media { max-width: 100%; border-radius: 8px; margin: 1rem 0; display: block; }
-        .md2-icon { display: inline-block; width: 1em; height: 1em; background-color: currentColor; -webkit-mask-size: cover; mask-size: cover; vertical-align: middle; }
-        
-        /* Tabela Inteligente Básica */
-        .md2-smart-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-family: monospace; }
-        .md2-smart-table th, .md2-smart-table td { border: 1px solid #ccc; padding: 8px; }
-        .md2-smart-table th { background-color: #f4f4f4; }
-    </style>
-</head>
-<body>
+        index += 2;
 
-<header>
-    <h1>Markdown V2 (MD2)</h1>
-    <span style="font-size: 0.9rem; color: #6272a4;">Parser v3.0-Draft</span>
-</header>
+        const rows = [];
 
-<div class="container">
-    <div class="panel">
-        <div class="panel-header">Código Fonte (MD2)</div>
-        <textarea id="editor" spellcheck="false">
----
-title: Especificação MD2
-version: 3.0
-theme_color: #FF5500
----
+        while (
+            index < lines.length &&
+            /\|/.test(lines[index]) &&
+            lines[index].trim() !== ""
+        ) {
+            rows.push(
+                splitRow(
+                    lines[index]
+                )
+            );
 
-# Bem-vindo à versão {{version}} da {{title}}
+            index++;
+        }
 
-O MD2 mantém a leitura fácil, mas expande a interatividade [sem precisar de HTML]{color={{theme_color}} font="Impact"}.
+        const head =
+            "<tr>" +
+            headers
+                .map(
+                    cell =>
+                        "<th>" +
+                        parseInline(
+                            cell,
+                            state
+                        ) +
+                        "</th>"
+                )
+                .join("") +
+            "</tr>";
 
-## 1. Formatação Inline Avançada
-Você pode usar ==texto destacado==, __texto sublinhado__, ou ~~texto tachado~~.
-Fórmulas: x^2^ e H~2~O.
-Atalhos: Pressione [[Ctrl]] + [[Enter]].
-Spoiler interativo: O culpado foi o ||[mordomo]||.
+        const body =
+            rows
+                .map(
+                    row =>
+                        "<tr>" +
+                        headers
+                            .map(
+                                (_, i) =>
+                                    "<td>" +
+                                    parseInline(
+                                        row[i] ??
+                                            "",
+                                        state
+                                    ) +
+                                    "</td>"
+                            )
+                            .join("") +
+                        "</tr>"
+                )
+                .join("");
 
-## 2. Micro-Estilos e Interatividade
-Pinte seu texto facilmente: [Atenção!]{color=yellow size=1.5em font="Impact" stroke="1px red"}
-Brinque com o espaço: [R E S P I R O]{letter-spacing=8px}
-Eventos dinâmicos: [Passe o mouse aqui]{hover-color=blue hover-size=1.2em} e descubra um [Mistério]{hover-text="Revelado!"}.
+        return {
+            html:
+                '<table class="md2-smart-table">' +
+                "<thead>" +
+                head +
+                "</thead>" +
+                "<tbody>" +
+                body +
+                "</tbody>" +
+                "</table>",
 
-## 3. Animações Nativas
-* [Texto Arco-íris]{animate="rainbow"}
-* [Alerta Crítico]{animate="pulse" duration="0.8s"}
-* [Carregando sistema...]{animate="typewriter"}
+            index
+        };
+    }
 
-## 4. Blocos Especiais (Layouts)
+    function parseFencedBlock(
+        lines,
+        index,
+        state
+    ) {
+        const opening =
+            lines[index].match(
+                /^:::(\w+)?(?:\s+\{([^}]*)\})?\s*$/
+            );
 
-:::book {theme=sepia font="Georgia"}
-**Capítulo 1: O Início**
-Aqui entra um texto longo que será isolado do resto da página, focando totalmente na experiência de leitura. Aceita **Markdown** interno.
-:::
+        if (!opening) {
+            return null;
+        }
 
-:::info
-**Informação importante:** Callouts nativos tornam a documentação elegante.
-:::
+        const type =
+            (
+                opening[1] ||
+                "container"
+            ).toLowerCase();
 
-:::danger
-**Erro Crítico:** Cuidado com ações irreversíveis.
-:::
+        const rawAttrs =
+            opening[2] || "";
 
-## 5. Abas e Colunas
+        const attrs =
+            parseAttributes(
+                rawAttrs
+            );
 
-:::tabs
-@tab JavaScript
-```javascript
-console.log("A");
+        const content = [];
+
+        let i = index + 1;
+        let depth = 1;
+
+        while (i < lines.length) {
+            if (
+                /^:::(?:\s*)$/.test(
+                    lines[i]
+                )
+            ) {
+                depth--;
+
+                if (depth === 0) {
+                    break;
+                }
+            } else if (
+                /^:::\w+/.test(
+                    lines[i]
+                )
+            ) {
+                depth++;
+            }
+
+            content.push(
+                lines[i]
+            );
+
+            i++;
+        }
+
+        if (i >= lines.length) {
+            return null;
+        }
+
+        const inner =
+            parseBlocks(
+                content.join("\n"),
+                state
+            ).html;
+
+        if (
+            type === "info" ||
+            type === "danger" ||
+            type === "success" ||
+            type === "warning"
+        ) {
+            return {
+                html:
+                    '<aside class="md2-callout md2-callout-' +
+                    type +
+                    '">' +
+                    inner +
+                    "</aside>",
+
+                index: i + 1
+            };
+        }
+
+        if (type === "book") {
+            const theme =
+                attrs.theme
+                    ? " md2-book-" +
+                      String(
+                          attrs.theme
+                      )
+                          .toLowerCase()
+                          .replace(
+                              /[^a-z0-9_-]/g,
+                              ""
+                          )
+                    : "";
+
+            const font =
+                attrs.font
+                    ? ' style="font-family:' +
+                      escapeAttr(
+                          attrs.font.replace(
+                              /["']/g,
+                              ""
+                          )
+                      ) +
+                      '"'
+                    : "";
+
+            return {
+                html:
+                    '<section class="md2-book' +
+                    theme +
+                    '"' +
+                    font +
+                    ">" +
+                    inner +
+                    "</section>",
+
+                index: i + 1
+            };
+        }
+
+        if (type === "accordion") {
+            const title =
+                attrs.title
+                    ? escapeHtml(
+                          attrs.title
+                      )
+                    : "Detalhes";
+
+            return {
+                html:
+                    '<details class="md2-accordion">' +
+                    "<summary>" +
+                    title +
+                    "</summary>" +
+                    '<div class="md2-accordion-content">' +
+                    inner +
+                    "</div>" +
+                    "</details>",
+
+                index: i + 1
+            };
+        }
+
+        if (type === "columns") {
+            const columns = [];
+            let current = [];
+
+            for (
+                const line of content
+            ) {
+                if (
+                    /^:::column\s*$/.test(
+                        line.trim()
+                    )
+                ) {
+                    if (
+                        current.length
+                    ) {
+                        columns.push(
+                            current.join("\n")
+                        );
+                    }
+
+                    current = [];
+                    continue;
+                }
+
+                current.push(
+                    line
+                );
+            }
+
+            if (current.length) {
+                columns.push(
+                    current.join("\n")
+                );
+            }
+
+            const columnHtml =
+                columns.length
+                    ? columns
+                          .map(
+                              col =>
+                                  '<div class="md2-column">' +
+                                  parseBlocks(
+                                      col,
+                                      state
+                                  ).html +
+                                  "</div>"
+                          )
+                          .join("")
+                    : '<div class="md2-column">' +
+                      inner +
+                      "</div>";
+
+            return {
+                html:
+                    '<div class="md2-columns">' +
+                    columnHtml +
+                    "</div>",
+
+                index: i + 1
+            };
+        }
+
+        if (type === "tabs") {
+            const tabs = [];
+
+            let currentTitle = null;
+            let currentLines = [];
+
+            for (
+                const line of content
+            ) {
+                const tabMatch =
+                    line.match(
+                        /^@tab\s+(.+)$/
+                    );
+
+                if (tabMatch) {
+                    if (
+                        currentTitle !==
+                        null
+                    ) {
+                        tabs.push({
+                            title:
+                                currentTitle,
+                            body:
+                                currentLines.join(
+                                    "\n"
+                                )
+                        });
+                    }
+
+                    currentTitle =
+                        tabMatch[1].trim();
+
+                    currentLines = [];
+                } else {
+                    currentLines.push(
+                        line
+                    );
+                }
+            }
+
+            if (
+                currentTitle !==
+                null
+            ) {
+                tabs.push({
+                    title:
+                        currentTitle,
+                    body:
+                        currentLines.join(
+                            "\n"
+                        )
+                });
+            }
+
+            const id =
+                "md2-tabs-" +
+                Math.random()
+                    .toString(36)
+                    .slice(2);
+
+            const headers =
+                tabs
+                    .map(
+                        (tab, n) => {
+                            const active =
+                                n === 0
+                                    ? " active"
+                                    : "";
+
+                            return (
+                                '<button type="button" class="md2-tab-header' +
+                                active +
+                                '" data-md2-tab="' +
+                                id +
+                                "-" +
+                                n +
+                                '">' +
+                                escapeHtml(
+                                    tab.title
+                                ) +
+                                "</button>"
+                            );
+                        }
+                    )
+                    .join("");
+
+            const bodies =
+                tabs
+                    .map(
+                        (tab, n) => {
+                            const active =
+                                n === 0
+                                    ? " active"
+                                    : "";
+
+                            return (
+                                '<div class="md2-tab-content' +
+                                active +
+                                '" id="' +
+                                id +
+                                "-" +
+                                n +
+                                '">' +
+                                parseBlocks(
+                                    tab.body,
+                                    state
+                                ).html +
+                                "</div>"
+                            );
+                        }
+                    )
+                    .join("");
+
+            return {
+                html:
+                    '<section class="md2-tabs" data-md2-tabs="' +
+                    id +
+                    '">' +
+                    '<div class="md2-tab-headers">' +
+                    headers +
+                    "</div>" +
+                    bodies +
+                    "</section>",
+
+                index: i + 1
+            };
+        }
+
+        return {
+            html:
+                '<div class="md2-block md2-' +
+                escapeAttr(type) +
+                '">' +
+                inner +
+                "</div>",
+
+            index: i + 1
+        };
+    }
+
+    function parseBlocks(
+        source,
+        state
+    ) {
+        const lines =
+            source
+                .replace(
+                    /\r\n?/g,
+                    "\n"
+                )
+                .split("\n");
+
+        const html = [];
+        let i = 0;
+
+        while (i < lines.length) {
+            const line = lines[i];
+
+            if (!line.trim()) {
+                i++;
+                continue;
+            }
+
+            if (/^\s*```/.test(line)) {
+                const lang =
+                    line
+                        .replace(
+                            /^\s*```/,
+                            ""
+                        )
+                        .trim();
+
+                const code = [];
+
+                i++;
+
+                while (
+                    i < lines.length &&
+                    !/^\s*```/.test(
+                        lines[i]
+                    )
+                ) {
+                    code.push(
+                        lines[i]
+                    );
+
+                    i++;
+                }
+
+                if (
+                    i < lines.length
+                ) {
+                    i++;
+                }
+
+                const langClass =
+                    lang
+                        ? ' data-language="' +
+                          escapeAttr(
+                              lang
+                          ) +
+                          '"'
+                        : "";
+
+                html.push(
+                    '<pre class="md2-code"' +
+                    langClass +
+                    "><code>" +
+                    escapeHtml(
+                        code.join("\n")
+                    ) +
+                    "</code></pre>"
+                );
+
+                continue;
+            }
+
+            const fenced =
+                parseFencedBlock(
+                    lines,
+                    i,
+                    state
+                );
+
+            if (fenced) {
+                html.push(
+                    fenced.html
+                );
+
+                i =
+                    fenced.index;
+
+                continue;
+            }
+
+            const table =
+                parseTable(
+                    lines,
+                    i,
+                    state
+                );
+
+            if (table) {
+                html.push(
+                    table.html
+                );
+
+                i =
+                    table.index;
+
+                continue;
+            }
+
+            const heading =
+                line.match(
+                    /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/
+                );
+
+            if (heading) {
+                const level =
+                    heading[1].length;
+
+                html.push(
+                    "<h" +
+                    level +
+                    ">" +
+                    parseInline(
+                        heading[2],
+                        state
+                    ) +
+                    "</h" +
+                    level +
+                    ">"
+                );
+
+                i++;
+
+                continue;
+            }
+
+            const quote =
+                line.match(
+                    /^\s*>\s?(.*)$/
+                );
+
+            if (quote) {
+                const quoteLines = [];
+
+                while (
+                    i < lines.length
+                ) {
+                    const m =
+                        lines[i].match(
+                            /^\s*>\s?(.*)$/
+                        );
+
+                    if (!m) {
+                        break;
+                    }
+
+                    quoteLines.push(
+                        m[1]
+                    );
+
+                    i++;
+                }
+
+                html.push(
+                    "<blockquote>" +
+                    parseBlocks(
+                        quoteLines.join(
+                            "\n"
+                        ),
+                        state
+                    ).html +
+                    "</blockquote>"
+                );
+
+                continue;
+            }
+
+            if (
+                /^\s*(?:[-*+]\s+|\d+\.\s+)/.test(
+                    line
+                )
+            ) {
+                const list =
+                    parseList(
+                        lines,
+                        i,
+                        state
+                    );
+
+                html.push(
+                    list.html
+                );
+
+                i =
+                    list.index;
+
+                continue;
+            }
+
+            if (
+                /^\s*---+\s*$/.test(
+                    line
+                )
+            ) {
+                html.push(
+                    "<hr>"
+                );
+
+                i++;
+
+                continue;
+            }
+
+            const paragraph = [
+                line
+            ];
+
+            i++;
+
+            while (
+                i < lines.length &&
+                lines[i].trim() &&
+                !/^\s{0,3}(#{1,6})\s+/.test(
+                    lines[i]
+                ) &&
+                !/^\s*```/.test(
+                    lines[i]
+                ) &&
+                !/^:::\w*/.test(
+                    lines[i]
+                ) &&
+                !/^\s*(?:[-*+]\s+|\d+\.\s+)/.test(
+                    lines[i]
+                ) &&
+                !/^\s*>/.test(
+                    lines[i]
+                )
+            ) {
+                paragraph.push(
+                    lines[i]
+                );
+
+                i++;
+            }
+
+            html.push(
+                "<p>" +
+                parseInline(
+                    paragraph
+                        .join("\n")
+                        .replace(
+                            /\n/g,
+                            "<br>"
+                        ),
+                    state
+                ) +
+                "</p>"
+            );
+        }
+
+        return {
+            html: html.join("\n")
+        };
+    }
+
+    function applyDOMBehavior(root) {
+        root.addEventListener(
+            "click",
+            function (event) {
+                const spoiler =
+                    event.target.closest(
+                        ".md2-spoiler"
+                    );
+
+                if (
+                    spoiler &&
+                    root.contains(
+                        spoiler
+                    )
+                ) {
+                    const revealed =
+                        spoiler.classList.toggle(
+                            "revealed"
+                        );
+
+                    spoiler.setAttribute(
+                        "aria-expanded",
+                        revealed
+                            ? "true"
+                            : "false"
+                    );
+
+                    return;
+                }
+
+                const tab =
+                    event.target.closest(
+                        ".md2-tab-header"
+                    );
+
+                if (
+                    !tab ||
+                    !root.contains(tab)
+                ) {
+                    return;
+                }
+
+                const tabs =
+                    tab.closest(
+                        ".md2-tabs"
+                    );
+
+                if (!tabs) {
+                    return;
+                }
+
+                const id =
+                    tab.getAttribute(
+                        "data-md2-tab"
+                    );
+
+                tabs
+                    .querySelectorAll(
+                        ".md2-tab-header"
+                    )
+                    .forEach(
+                        button => {
+                            button.classList.toggle(
+                                "active",
+                                button ===
+                                    tab
+                            );
+                        }
+                    );
+
+                tabs
+                    .querySelectorAll(
+                        ".md2-tab-content"
+                    )
+                    .forEach(
+                        content => {
+                            content.classList.toggle(
+                                "active",
+                                content.id ===
+                                    id
+                            );
+                        }
+                    );
+            }
+        );
+
+        root.addEventListener(
+            "keydown",
+            function (event) {
+                if (
+                    event.key !==
+                        "Enter" &&
+                    event.key !== " "
+                ) {
+                    return;
+                }
+
+                const spoiler =
+                    event.target.closest(
+                        ".md2-spoiler"
+                    );
+
+                if (
+                    !spoiler ||
+                    !root.contains(
+                        spoiler
+                    )
+                ) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                spoiler.click();
+            }
+        );
+
+        root.addEventListener(
+            "mouseover",
+            function (event) {
+                const element =
+                    event.target.closest(
+                        "[data-hover-color],[data-hover-size]"
+                    );
+
+                if (
+                    !element ||
+                    !root.contains(
+                        element
+                    )
+                ) {
+                    return;
+                }
+
+                if (
+                    element.dataset
+                        .hoverColor
+                ) {
+                    element.dataset.md2OldColor =
+                        element.style.color ||
+                        "";
+
+                    element.style.color =
+                        element.dataset.hoverColor;
+                }
+
+                if (
+                    element.dataset
+                        .hoverSize
+                ) {
+                    element.dataset.md2OldSize =
+                        element.style.fontSize ||
+                        "";
+
+                    element.style.fontSize =
+                        element.dataset.hoverSize;
+                }
+            }
+        );
+
+        root.addEventListener(
+            "mouseout",
+            function (event) {
+                const element =
+                    event.target.closest(
+                        "[data-hover-color],[data-hover-size]"
+                    );
+
+                if (
+                    !element ||
+                    !root.contains(
+                        element
+                    )
+                ) {
+                    return;
+                }
+
+                if (
+                    element.dataset
+                        .hoverColor
+                ) {
+                    element.style.color =
+                        element.dataset.md2OldColor ||
+                        "";
+                }
+
+                if (
+                    element.dataset
+                        .hoverSize
+                ) {
+                    element.style.fontSize =
+                        element.dataset.md2OldSize ||
+                        "";
+                }
+            }
+        );
+
+        root
+            .querySelectorAll(
+                "[data-md2-animation]"
+            )
+            .forEach(
+                element => {
+                    const animation =
+                        element.dataset
+                            .md2Animation;
+
+                    if (
+                        animation ===
+                        "rainbow"
+                    ) {
+                        element.classList.add(
+                            "md2-anim-rainbow"
+                        );
+                    }
+
+                    if (
+                        animation ===
+                        "pulse"
+                    ) {
+                        element.classList.add(
+                            "md2-anim-pulse"
+                        );
+                    }
+
+                    if (
+                        animation ===
+                        "typewriter"
+                    ) {
+                        element.classList.add(
+                            "md2-anim-typewriter"
+                        );
+                    }
+
+                    if (
+                        element.dataset
+                            .md2Duration
+                    ) {
+                        element.style.animationDuration =
+                            element.dataset.md2Duration;
+                    }
+                }
+            );
+    }
+
+    function parse(
+        source,
+        options
+    ) {
+        const opts =
+            mergeOptions(
+                options
+            );
+
+        const frontMatter =
+            parseFrontMatter(
+                source
+            );
+
+        const attributes =
+            frontMatter.attributes;
+
+        const state = {
+            attributes,
+            options: opts
+        };
+
+        const body =
+            replaceVariables(
+                frontMatter.body,
+                attributes
+            );
+
+        const result =
+            parseBlocks(
+                body,
+                state
+            ).html;
+
+        return {
+            html:
+                '<div class="md2-root">' +
+                result +
+                "</div>",
+
+            attributes,
+
+            version: VERSION
+        };
+    }
+
+    function render(
+        source,
+        target,
+        options
+    ) {
+        if (
+            typeof Element ===
+                "undefined" ||
+            !(target instanceof Element)
+        ) {
+            throw new TypeError(
+                "MD2.render: target deve ser um Element."
+            );
+        }
+
+        const opts =
+            mergeOptions(
+                options
+            );
+
+        if (
+            opts.injectStyles
+        ) {
+            injectStyles();
+        }
+
+        const result =
+            parse(
+                source,
+                opts
+            );
+
+        target.innerHTML =
+            result.html;
+
+        const root =
+            target.querySelector(
+                ".md2-root"
+            );
+
+        if (root) {
+            applyDOMBehavior(
+                root
+            );
+        }
+
+        return result;
+    }
+
+    function mount(
+        target,
+        source,
+        options
+    ) {
+        return render(
+            source,
+            target,
+            options
+        );
+    }
+
+    function create(
+        options
+    ) {
+        const opts =
+            mergeOptions(
+                options
+            );
+
+        return {
+            version:
+                VERSION,
+
+            parse: source =>
+                parse(
+                    source,
+                    opts
+                ),
+
+            render: (
+                source,
+                target
+            ) =>
+                render(
+                    source,
+                    target,
+                    opts
+                ),
+
+            mount: (
+                target,
+                source
+            ) =>
+                render(
+                    source,
+                    target,
+                    opts
+                )
+        };
+    }
+
+    const MD2 = {
+        version: VERSION,
+        parse,
+        render,
+        mount,
+        create,
+        injectStyles,
+        options: defaultOptions
+    };
+
+    if (
+        typeof module !==
+            "undefined" &&
+        module.exports
+    ) {
+        module.exports = MD2;
+    }
+
+    global.MD2 = MD2;
+
+})(
+    typeof globalThis !==
+        "undefined"
+        ? globalThis
+        : window
+);
